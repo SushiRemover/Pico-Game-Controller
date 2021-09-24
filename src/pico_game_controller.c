@@ -115,7 +115,7 @@ void update_lights() {
     reactive_timeout_count++;
   }
   if (leds_changed) {
-    for (int i = 0; i < LED_GPIO_SIZE; i++) {
+    for (int i = 0; i < LED_GPIO_SIZE - 1; i++) {
       if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) {
         if (sw_val[i]) {
           gpio_put(LED_GPIO[i], 1);
@@ -130,6 +130,21 @@ void update_lights() {
         }
       }
     }
+    /* start button sw_val index is offset by two with respect to LED_GPIO */
+    if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) {
+      if (sw_val[LED_GPIO_SIZE + 1]) {
+        gpio_put(LED_GPIO[LED_GPIO_SIZE - 1], 1);
+      } else {
+        gpio_put(LED_GPIO[LED_GPIO_SIZE - 1], 0);
+      }
+    } else {
+      if (lights_report.lights.buttons[LED_GPIO_SIZE - 1] == 0) {
+        gpio_put(LED_GPIO[LED_GPIO_SIZE - 1], 0);
+      } else {
+        gpio_put(LED_GPIO[LED_GPIO_SIZE - 1], 1);
+      }
+    }
+
     leds_changed = false;
   }
 }
