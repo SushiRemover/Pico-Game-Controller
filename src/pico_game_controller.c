@@ -200,7 +200,7 @@ void key_mode() {
       tud_hid_n_report(0x00, REPORT_ID_KEYBOARD, &nkro_report,
                        sizeof(nkro_report));
     } else {
-      tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, delta[0], delta[1], 0, 0);
+      tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, delta[0], 0, 0, 0);
     }
     // Alternate reports
     kbm_report = !kbm_report;
