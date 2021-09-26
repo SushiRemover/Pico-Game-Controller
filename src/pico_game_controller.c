@@ -22,7 +22,7 @@
 #define SW_GPIO_SIZE 11               // Number of switches
 #define LED_GPIO_SIZE 10              // Number of switches
 #define ENC_GPIO_SIZE 2               // Number of encoders
-#define ENC_PPR 600                   // Encoder PPR
+#define ENC_PPR 24                    // Encoder PPR
 #define ENC_DEBOUNCE true             // Encoder Debouncing
 #define ENC_PULSE (ENC_PPR * 4)       // 4 pulses per PPR
 #define ENC_ROLLOVER (ENC_PULSE * 2)  // Delta Rollover threshold
@@ -120,7 +120,7 @@ void ws2812b_color_cycle(uint32_t counter) {
  **/
 void ws2812b_update(uint32_t counter) {
   if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) {
-    ws2812b_color_cycle(counter);
+    ws2812b_color_cycle(((double)cur_enc_val[0] / ENC_PULSE) * 768);
   } else {
     for (int i = 0; i < WS2812B_LED_ZONES; i++) {
       for (int j = 0; j < WS2812B_LEDS_PER_ZONE; j++) {
