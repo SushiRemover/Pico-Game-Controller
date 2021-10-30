@@ -19,6 +19,8 @@ How to select modes (same as original):
 - Press BT-A while initializing to enter Standart Keyboard/Mouse-Mode
 - ***Press BT-B while initializing to enter the Alternative_Keyboard-Mode***
 
+Newest build is available in Pico-Game-Controller/build_uf2/Pico_Game_Controller.uf2
+
 # Original README
 Code for a keyboard or game controller using a Raspberry Pi Pico. Capable of handling 11 buttons, 10 LEDs, 1 WS2812B RGB strip, and 2 encoders.  Developed with SDVX and IIDX in mind - see branches release/pocket-sdvx-pico and release/pocket-iidx for preconfigured versions.
 
