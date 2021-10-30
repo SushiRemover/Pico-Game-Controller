@@ -27,6 +27,12 @@ uint32_t prev_enc_val[ENC_GPIO_SIZE];
 int cur_enc_val[ENC_GPIO_SIZE];
 
 bool sw_val[SW_GPIO_SIZE];
+bool enc_bool[4] = {0};
+bool wait = false;
+bool durationReached = false;
+bool delayReached = true;
+uint32_t time = 0;
+uint32_t time2 = 0;
 
 bool kbm_report;
 
@@ -207,6 +213,86 @@ void key_mode() {
   }
 }
 
+void altkey_mode() {
+  if (tud_hid_ready()) {  // Wait for ready, updating mouse too fast hampers
+                          // movement
+    /*------------- Keyboard -------------*/
+    uint8_t nkro_report[32] = {0};
+    for (int i = 0; i < SW_GPIO_SIZE; i++) {
+      if (sw_val[i]) {
+        uint8_t bit = ALT_SW_KEYCODE[i] % 8;
+        uint8_t byte = (ALT_SW_KEYCODE[i] / 8) + 1;
+        if (ALT_SW_KEYCODE[i] >= 240 && ALT_SW_KEYCODE[i] <= 247) {
+          nkro_report[0] |= (1 << bit);
+        } else if (byte > 0 && byte <= 31) {
+          nkro_report[byte] |= (1 << bit);
+        }
+      }
+    }
+
+    // Prototype Encoder to Arrowkey
+    int deltaEnc1 = enc_val[0] - prev_enc_val[0];
+    int deltaEnc2 = enc_val[1] - prev_enc_val[1];
+
+    if(delayReached) {
+      if(!wait) {
+        if(deltaEnc1 < ENC_IPK * -1) {
+          enc_bool[0] = true;
+          time = time_us_32();
+          wait = true;
+        } else if(deltaEnc1 > ENC_IPK) {
+          enc_bool[1] = true;
+          time = time_us_32();
+          wait = true;
+        }
+        if(deltaEnc2 < ENC_IPK * -1) {
+          enc_bool[2] = true;
+          time = time_us_32();
+          wait = true;
+        } else if(deltaEnc2 > ENC_IPK) {
+          enc_bool[3] = true;
+          time = time_us_32();
+          wait = true;
+        }
+      } else if(!durationReached && wait) {
+        if(time + (rand() % ((KEYPULSE_DURATION + 5000) - KEYPULSE_DURATION + 1000)) + KEYPULSE_DURATION <= time_us_32()) {
+          durationReached = true;
+        }
+      } else if(durationReached && wait) {
+        time2 = time_us_32();
+        delayReached = false;
+      }
+    } else {
+      if(time2 + (rand() % ((KEYPULSE_DELAY + 5000) - KEYPULSE_DELAY + 1000)) + KEYPULSE_DELAY <= time_us_32()) {
+        prev_enc_val[0] = enc_val[0];
+        prev_enc_val[1] = enc_val[1];
+        for(int i = 0; i < 4; i++) {
+        enc_bool[i] = false;
+        }
+        delayReached = true;
+        wait = false;
+      }
+    }
+
+    for (int i = 0; i < 4; i++) {
+      if (enc_bool[i]) {
+        uint8_t bit = ALT_ENC_KEYCODE[i] % 8;
+        uint8_t byte = (ALT_ENC_KEYCODE[i] / 8) + 1;
+        if (ALT_ENC_KEYCODE[i] >= 240 && ALT_ENC_KEYCODE[i] <= 247) {
+          nkro_report[0] |= (1 << bit);
+        } else if (byte > 0 && byte <= 31) {
+          nkro_report[byte] |= (1 << bit);
+        }
+      }
+    }
+
+    tud_hid_n_report(0x00, REPORT_ID_KEYBOARD, &nkro_report, sizeof(nkro_report));
+
+    // Alternate reports
+    kbm_report = !kbm_report;
+  }
+}
+
 /**
  * Update Input States
  **/
@@ -234,6 +320,26 @@ void dma_handler() {
     dma_channel_set_read_addr(interrupt_channel, &pio->rxf[interrupt_channel],
                               true);
   }
+}
+
+/**
+ * Mode indication
+ **/
+void indicateMode(int mode) {
+  gpio_put(LED_GPIO[4], 1);
+  gpio_put(LED_GPIO[5], 1);
+  for(int i = 0; i < 3; i++) {
+    for(int i = 0; i < mode; i++) {
+      gpio_put(LED_GPIO[i], 1);
+    }
+    sleep_ms(400);
+    for(int i = 0; i < mode; i++) {
+      gpio_put(LED_GPIO[i], 0);
+    }
+    sleep_ms(200);
+  }
+  gpio_put(LED_GPIO[4], 0);
+  gpio_put(LED_GPIO[5], 0);
 }
 
 /**
@@ -298,12 +404,18 @@ void init() {
   kbm_report = false;
 
   // Joy/KB Mode Switching
-  if (gpio_get(SW_GPIO[0])) {
-    loop_mode = &joy_mode;
-    joy_mode_check = true;
-  } else {
+  if (!gpio_get(SW_GPIO[0])) {        //conventional keyboard/mouse mode
     loop_mode = &key_mode;
     joy_mode_check = false;
+    indicateMode(1);
+  } else if (!gpio_get(SW_GPIO[1])) { //alternative keyboard mode
+    loop_mode = &altkey_mode;
+    joy_mode_check = false;
+    indicateMode(2);
+  } else {                            //joymode lol
+    loop_mode = &joy_mode;
+    joy_mode_check = true;
+    indicateMode(4);
   }
 }
 
