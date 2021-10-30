@@ -4,7 +4,7 @@ I changed the Firmware to fit my needs, not sain that I can write clean or effec
 
 Features of my Version:
 - Mode indication upon initializing:
-  - FX-L and FX-R lit up, BT-A to BT-D signalizing the Mode
+  - FX-L and FX-R lit up, BT-A to BT-D flashing 3 times signalizing the Mode
   - BT-A, BT-B, BT-C and BT-D lit for Joypad-Mode
   - BT-A lit for Standart Keyboard/Mouse-Mode
   - BT-A and BT-B lit for custom Keyboard-Mode
