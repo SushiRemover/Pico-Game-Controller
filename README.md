@@ -1,5 +1,25 @@
-# Pico-Game-Controller
+Forked from https://github.com/speedypotato/Pico-Game-Controller
 
+I changed the Firmware to fit my needs, not sain that I can write clean or effecient code...
+
+Features of my Version:
+- Mode indication upon initializing:
+  - FX-L and FX-R lit up, BT-A to BT-D signalizing the Mode
+  - BT-A, BT-B, BT-C and BT-D lit for Joypad-Mode
+  - BT-A lit for Standart Keyboard/Mouse-Mode
+  - BT-A and BT-B lit for custom Keyboard-Mode
+- New mode, Alternative_Keyboard-Mode:
+  - Vol-L act as Arrow Left and Right
+  - Vol-R act as Arrow Up and Down
+  - Keybindings (incl. Vol-L and Vol-R) can be changed in controller_config.h and are seperate to Standart Keyboard/Mouse-Mode
+  - Delay and Duration of the Keypulse as well as the impules from the encoder needed to start a pulse can also be set in controller_config.h
+
+How to select modes (same as original):
+- Press nothing while pico initializes, enters Joypad-Mode
+- Press BT-A while initializing to enter Standart Keyboard/Mouse-Mode
+- ***Press BT-B while initializing to enter the Alternative_Keyboard-Mode***
+
+# Original README
 Code for a keyboard or game controller using a Raspberry Pi Pico. Capable of handling 11 buttons, 10 LEDs, 1 WS2812B RGB strip, and 2 encoders.  Developed with SDVX and IIDX in mind - see branches release/pocket-sdvx-pico and release/pocket-iidx for preconfigured versions.
 
 Demo of this firmware running on Pocket SDVX Pico, purchasable at https://discord.gg/MmuKd73XbY
