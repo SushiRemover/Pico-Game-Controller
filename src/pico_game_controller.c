@@ -323,21 +323,51 @@ void dma_handler() {
 }
 
 /**
+ * WS2812B Set all LEDs
+ **/
+void ws2812B_All(uint8_t r, uint8_t g, uint8_t b) {
+  for (int i = 0; i < WS2812B_LED_ZONES; i++) {
+    for (int j = 0; j < WS2812B_LEDS_PER_ZONE; j++) {
+      put_pixel(urgb_u32(r, g, b));
+    }
+  }
+}
+
+/**
  * Mode indication
  **/
 void indicateMode(int mode) {
   gpio_put(LED_GPIO[4], 1);
   gpio_put(LED_GPIO[5], 1);
+
   for(int i = 0; i < 3; i++) {
+    switch (mode) {
+      case 1: //Keyboard/Mouse-Mode
+        ws2812B_All(0, 0, 255);
+        break;
+      case 2: //Alternative Keyboard-Mode
+        ws2812B_All(255, 0, 255); 
+        break;
+      case 4: //Joypad-Mode
+        ws2812B_All(0, 255, 0);
+        break;
+    }
+
     for(int i = 0; i < mode; i++) {
       gpio_put(LED_GPIO[i], 1);
     }
+
     sleep_ms(400);
+    
     for(int i = 0; i < mode; i++) {
       gpio_put(LED_GPIO[i], 0);
     }
+
+    ws2812B_All(0, 0, 0);
+
     sleep_ms(200);
   }
+
   gpio_put(LED_GPIO[4], 0);
   gpio_put(LED_GPIO[5], 0);
 }
