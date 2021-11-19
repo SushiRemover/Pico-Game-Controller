@@ -27,17 +27,26 @@ uint32_t prev_enc_val[ENC_GPIO_SIZE];
 int cur_enc_val[ENC_GPIO_SIZE];
 
 bool sw_val[SW_GPIO_SIZE];
+bool prev_sw_val[SW_GPIO_SIZE];
+uint64_t sw_timestamp[SW_GPIO_SIZE];
 bool enc_bool[4] = {0};
+bool holdSw[SW_GPIO_SIZE];
+bool pauseSw[SW_GPIO_SIZE];
 bool wait = false;
 bool durationReached = false;
 bool delayReached = true;
-uint32_t time = 0;
-uint32_t time2 = 0;
+bool modeSelected = false;
+bool modeIndication = false;
+bool fxLEDsOn = false;
+bool modeLEDsOn = false;
+int mode = 4;
+uint64_t time = 0;
+uint64_t time2 = 0;
+uint64_t time3 = 0;
 
 bool kbm_report;
 
-bool leds_changed;
-unsigned long reactive_timeout_count = REACTIVE_TIMEOUT_MAX;
+uint64_t reactive_timeout_timestamp;
 
 void (*loop_mode)();
 bool joy_mode_check = true;
@@ -100,7 +109,7 @@ void ws2812b_color_cycle(uint32_t counter) {
  * @param counter Current number of WS2812B cycles
  **/
 void ws2812b_update(uint32_t counter) {
-  if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) {
+  if (time_us_64() - reactive_timeout_timestamp >= REACTIVE_TIMEOUT_MAX) {
     ws2812b_color_cycle(counter);
   } else {
     for (int i = 0; i < WS2812B_LED_ZONES; i++) {
@@ -117,26 +126,20 @@ void ws2812b_update(uint32_t counter) {
  * HID/Reactive Lights
  **/
 void update_lights() {
-  if (reactive_timeout_count < REACTIVE_TIMEOUT_MAX) {
-    reactive_timeout_count++;
-  }
-  if (leds_changed) {
-    for (int i = 0; i < LED_GPIO_SIZE; i++) {
-      if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) {
-        if (sw_val[i]) {
-          gpio_put(LED_GPIO[i], 1);
-        } else {
-          gpio_put(LED_GPIO[i], 0);
-        }
+  for (int i = 0; i < LED_GPIO_SIZE; i++) {
+    if (time_us_64() - reactive_timeout_timestamp >= REACTIVE_TIMEOUT_MAX) {
+      if (!gpio_get(SW_GPIO[i])) {
+        gpio_put(LED_GPIO[i], 1);
       } else {
-        if (lights_report.lights.buttons[i] == 0) {
-          gpio_put(LED_GPIO[i], 0);
-        } else {
-          gpio_put(LED_GPIO[i], 1);
-        }
+        gpio_put(LED_GPIO[i], 0);
+      }
+    } else {
+      if (lights_report.lights.buttons[i] == 0) {
+        gpio_put(LED_GPIO[i], 0);
+      } else {
+        gpio_put(LED_GPIO[i], 1);
       }
     }
-    leds_changed = false;
   }
 }
 
@@ -184,9 +187,9 @@ void key_mode() {
     uint8_t nkro_report[32] = {0};
     for (int i = 0; i < SW_GPIO_SIZE; i++) {
       if (sw_val[i]) {
-        uint8_t bit = SW_KEYCODE[i] % 8;
-        uint8_t byte = (SW_KEYCODE[i] / 8) + 1;
-        if (SW_KEYCODE[i] >= 240 && SW_KEYCODE[i] <= 247) {
+        uint8_t bit = MD1_SW_KEYCODE[i] % 8;
+        uint8_t byte = (MD1_SW_KEYCODE[i] / 8) + 1;
+        if (MD1_SW_KEYCODE[i] >= 240 && MD1_SW_KEYCODE[i] <= 247) {
           nkro_report[0] |= (1 << bit);
         } else if (byte > 0 && byte <= 31) {
           nkro_report[byte] |= (1 << bit);
@@ -220,9 +223,9 @@ void altkey_mode() {
     uint8_t nkro_report[32] = {0};
     for (int i = 0; i < SW_GPIO_SIZE; i++) {
       if (sw_val[i]) {
-        uint8_t bit = ALT_SW_KEYCODE[i] % 8;
-        uint8_t byte = (ALT_SW_KEYCODE[i] / 8) + 1;
-        if (ALT_SW_KEYCODE[i] >= 240 && ALT_SW_KEYCODE[i] <= 247) {
+        uint8_t bit = MD2_SW_KEYCODE[i] % 8;
+        uint8_t byte = (MD2_SW_KEYCODE[i] / 8) + 1;
+        if (MD2_SW_KEYCODE[i] >= 240 && MD2_SW_KEYCODE[i] <= 247) {
           nkro_report[0] |= (1 << bit);
         } else if (byte > 0 && byte <= 31) {
           nkro_report[byte] |= (1 << bit);
@@ -238,32 +241,32 @@ void altkey_mode() {
       if(!wait) {
         if(deltaEnc1 < ENC_IPK * -1) {
           enc_bool[0] = true;
-          time = time_us_32();
+          time = time_us_64();
           wait = true;
         } else if(deltaEnc1 > ENC_IPK) {
           enc_bool[1] = true;
-          time = time_us_32();
+          time = time_us_64();
           wait = true;
         }
         if(deltaEnc2 < ENC_IPK * -1) {
           enc_bool[2] = true;
-          time = time_us_32();
+          time = time_us_64();
           wait = true;
         } else if(deltaEnc2 > ENC_IPK) {
           enc_bool[3] = true;
-          time = time_us_32();
+          time = time_us_64();
           wait = true;
         }
       } else if(!durationReached && wait) {
-        if(time + (rand() % ((KEYPULSE_DURATION + 5000) - KEYPULSE_DURATION + 1000)) + KEYPULSE_DURATION <= time_us_32()) {
+        if(time + (rand() % ((KEYPULSE_DURATION + 5000) - KEYPULSE_DURATION + 1000)) + KEYPULSE_DURATION <= time_us_64()) {
           durationReached = true;
         }
       } else if(durationReached && wait) {
-        time2 = time_us_32();
+        time2 = time_us_64();
         delayReached = false;
       }
     } else {
-      if(time2 + (rand() % ((KEYPULSE_DELAY + 5000) - KEYPULSE_DELAY + 1000)) + KEYPULSE_DELAY <= time_us_32()) {
+      if(time2 + (rand() % ((KEYPULSE_DELAY + 5000) - KEYPULSE_DELAY + 1000)) + KEYPULSE_DELAY <= time_us_64()) {
         prev_enc_val[0] = enc_val[0];
         prev_enc_val[1] = enc_val[1];
         for(int i = 0; i < 4; i++) {
@@ -276,9 +279,9 @@ void altkey_mode() {
 
     for (int i = 0; i < 4; i++) {
       if (enc_bool[i]) {
-        uint8_t bit = ALT_ENC_KEYCODE[i] % 8;
-        uint8_t byte = (ALT_ENC_KEYCODE[i] / 8) + 1;
-        if (ALT_ENC_KEYCODE[i] >= 240 && ALT_ENC_KEYCODE[i] <= 247) {
+        uint8_t bit = MD2_ENC_KEYCODE[i] % 8;
+        uint8_t byte = (MD2_ENC_KEYCODE[i] / 8) + 1;
+        if (MD2_ENC_KEYCODE[i] >= 240 && MD2_ENC_KEYCODE[i] <= 247) {
           nkro_report[0] |= (1 << bit);
         } else if (byte > 0 && byte <= 31) {
           nkro_report[byte] |= (1 << bit);
@@ -287,22 +290,78 @@ void altkey_mode() {
     }
 
     tud_hid_n_report(0x00, REPORT_ID_KEYBOARD, &nkro_report, sizeof(nkro_report));
-
-    // Alternate reports
-    kbm_report = !kbm_report;
   }
 }
 
 /**
  * Update Input States
+ * Note: Switches are pull up, negate value
  **/
 void update_inputs() {
   for (int i = 0; i < SW_GPIO_SIZE; i++) {
-    sw_val[i] = !gpio_get(SW_GPIO[i]);  // Switches are pull up, negate value
+    sw_val[i] = !gpio_get(SW_GPIO[i]);
   }
+}
 
-  // Update LEDs if input changed while in reactive mode
-  if (reactive_timeout_count >= REACTIVE_TIMEOUT_MAX) leds_changed = true;
+/**
+ * Update Input states for finding a rising/falling edge
+ **/ 
+void update_prev_inputs() {
+  for(int i = 0; i < SW_GPIO_SIZE; i++) {
+    prev_sw_val[i] = sw_val[i];
+  }
+}
+
+/**
+ * Debouncing Logic for Switches
+ **/
+void debounceSwitch() {
+  for(int i = 0; i < SW_GPIO_SIZE; i++) {
+    if(!prev_sw_val[i] && sw_val[i] && !holdSw[i] && !pauseSw[i]) {
+      // If switch gets pressed, record timestamp
+      sw_timestamp[i] = time_us_64();
+      holdSw[i] = true;
+    }
+
+    if(holdSw[i] && sw_timestamp[i] + SW_MIN_HOLD <= time_us_64()) {
+      holdSw[i] = false;
+    }else if(holdSw[i]) {
+      sw_val[i] = true;
+    }
+
+    if(!sw_val[i] && prev_sw_val[i]) {
+      sw_timestamp[i] = time_us_64();
+      pauseSw[i] = true;
+    }
+
+    if(pauseSw[i] && sw_timestamp[i] + SW_MIN_PAUSE <= time_us_64()) {
+      pauseSw[i] = false;
+    } else if(pauseSw[i]) {
+      sw_val[i] = false;
+    }
+  }
+}
+
+/**
+ * WS2812B Set all LEDs
+ **/
+void ws2812B_All(uint8_t r, uint8_t g, uint8_t b) {
+  for (int i = 0; i < WS2812B_LED_ZONES; i++) {
+    for (int j = 0; j < WS2812B_LEDS_PER_ZONE; j++) {
+      put_pixel(urgb_u32(r, g, b));
+    }
+  }
+}
+
+/**
+ * Second Core Runnable
+ **/
+void core1_entry() {
+  uint32_t counter = 0;
+  while (true) {
+    ws2812b_update(++counter);
+    sleep_ms(5);
+  }
 }
 
 /**
@@ -323,53 +382,124 @@ void dma_handler() {
 }
 
 /**
- * WS2812B Set all LEDs
+ * Send empty HID Report
  **/
-void ws2812B_All(uint8_t r, uint8_t g, uint8_t b) {
-  for (int i = 0; i < WS2812B_LED_ZONES; i++) {
-    for (int j = 0; j < WS2812B_LEDS_PER_ZONE; j++) {
-      put_pixel(urgb_u32(r, g, b));
-    }
+void clear_HID_report() {
+  while(!tud_hid_ready()) {
+    tud_task();
+    sleep_us(100);
+  }
+  uint8_t nkro_report[32] = {0};
+  while(true) {
+    if(tud_hid_n_report(0x00, REPORT_ID_KEYBOARD, &nkro_report, sizeof(nkro_report))) {break;}
+    tud_task();
+    sleep_us(100);
   }
 }
 
 /**
- * Mode indication
+ * Change Mode and close Menu
  **/
-void indicateMode(int mode) {
-  gpio_put(LED_GPIO[4], 1);
-  gpio_put(LED_GPIO[5], 1);
-
-  for(int i = 0; i < 3; i++) {
+void changeMode(int mode) {
+  modeSelected = true;
+    fxLEDsOn = false;
+    modeLEDsOn = false;
     switch (mode) {
-      case 1: //Keyboard/Mouse-Mode
-        ws2812B_All(0, 0, 255);
+      case 1:
+        loop_mode = &key_mode;
+        joy_mode_check = false;
         break;
-      case 2: //Alternative Keyboard-Mode
-        ws2812B_All(255, 0, 255); 
+      case 2:
+        loop_mode = &altkey_mode;
+        joy_mode_check = false;
         break;
-      case 4: //Joypad-Mode
-        ws2812B_All(0, 255, 0);
+      case 4:
+        loop_mode = &joy_mode;
+        joy_mode_check = true;
         break;
     }
+}
 
-    for(int i = 0; i < mode; i++) {
-      gpio_put(LED_GPIO[i], 1);
-    }
+/**
+ * Check if user wants to change mode
+ **/
+void checkForChangeMode() {
+  if(sw_val[4] && sw_val[5] && sw_val[7]) {
+    clear_HID_report();
+    time3 = time_us_64();
+    modeSelected = false;
+  }
+}
 
-    sleep_ms(400);
-    
-    for(int i = 0; i < mode; i++) {
-      gpio_put(LED_GPIO[i], 0);
-    }
-
-    ws2812B_All(0, 0, 0);
-
-    sleep_ms(200);
+/**
+ * Select Mode
+ **/
+void selectMode() {
+  int blinkInterval = (500 * 1000);
+  fxLEDsOn = true;
+  if(time + blinkInterval <= time_us_64()) {
+    time = time_us_64();
+    modeLEDsOn = !modeLEDsOn;
   }
 
-  gpio_put(LED_GPIO[4], 0);
-  gpio_put(LED_GPIO[5], 0);
+  if(sw_val[0] && !prev_sw_val[0]) {
+    mode = 1;
+    changeMode(mode);
+  }
+
+  if(sw_val[1] && !prev_sw_val[1]) {
+    mode = 2;
+    changeMode(mode);
+  }
+
+  if(sw_val[3] && !prev_sw_val[3]) {
+    mode = 4;
+    changeMode(mode);
+  }
+
+  if (sw_val[5] && !prev_sw_val[5]) {
+    if(mode < 4) {
+      mode += 1;
+    }
+    if(mode == 3) {
+      mode = 4;
+    }
+    sleep_us(700);
+  }
+
+  if (sw_val[4] && !prev_sw_val[4]) {
+    if(mode > 1) {
+      mode -= 1;
+    }
+    if(mode == 3) {
+      mode = 2;
+    }
+    sleep_us(700);
+  }
+
+  if(sw_val[7] && !sw_val[4] && !sw_val[5]) {
+    changeMode(mode);
+  }
+
+  for(int i = 0; i < 4; i++) {
+    gpio_put(LED_GPIO[i], 0);
+  } 
+
+  for(int i = 0; i < mode; i++) {
+    gpio_put(LED_GPIO[i], modeLEDsOn);
+  }
+
+  gpio_put(LED_GPIO[4], fxLEDsOn);
+  gpio_put(LED_GPIO[5], fxLEDsOn);
+}
+
+void force_selectMode() {
+  update_prev_inputs();
+  while(!modeSelected) {
+    update_inputs();
+    selectMode();
+    update_prev_inputs();
+  }
 }
 
 /**
@@ -387,9 +517,7 @@ void init() {
 
   // Setup Encoders
   for (int i = 0; i < ENC_GPIO_SIZE; i++) {
-    enc_val[i] = 0;
-    prev_enc_val[i] = 0;
-    cur_enc_val[i] = 0;
+    enc_val[i], prev_enc_val[i], cur_enc_val[i] = 0;
     encoders_program_init(pio, i, offset, ENC_GPIO[i], ENC_DEBOUNCE);
 
     dma_channel_config c = dma_channel_get_default_config(i);
@@ -408,6 +536,8 @@ void init() {
     dma_channel_set_irq0_enabled(i, true);
   }
 
+  reactive_timeout_timestamp = time_us_64();
+
   // Set up WS2812B
   pio_1 = pio1;
   uint offset2 = pio_add_program(pio_1, &ws2812_program);
@@ -416,7 +546,8 @@ void init() {
 
   // Setup Button GPIO
   for (int i = 0; i < SW_GPIO_SIZE; i++) {
-    sw_val[i] = false;
+    prev_sw_val[i] = false;
+    sw_timestamp[i] = 0;
     gpio_init(SW_GPIO[i]);
     gpio_set_function(SW_GPIO[i], GPIO_FUNC_SIO);
     gpio_set_dir(SW_GPIO[i], GPIO_IN);
@@ -430,34 +561,7 @@ void init() {
   }
 
   // Set listener bools
-  leds_changed = false;
   kbm_report = false;
-
-  // Joy/KB Mode Switching
-  if (!gpio_get(SW_GPIO[0])) {        //conventional keyboard/mouse mode
-    loop_mode = &key_mode;
-    joy_mode_check = false;
-    indicateMode(1);
-  } else if (!gpio_get(SW_GPIO[1])) { //alternative keyboard mode
-    loop_mode = &altkey_mode;
-    joy_mode_check = false;
-    indicateMode(2);
-  } else {                            //joymode lol
-    loop_mode = &joy_mode;
-    joy_mode_check = true;
-    indicateMode(4);
-  }
-}
-
-/**
- * Second Core Runnable
- **/
-void core1_entry() {
-  uint32_t counter = 0;
-  while (1) {
-    ws2812b_update(++counter);
-    sleep_ms(5);
-  }
 }
 
 /**
@@ -470,11 +574,20 @@ int main(void) {
 
   multicore_launch_core1(core1_entry);
 
+  force_selectMode();
+
   while (1) {
     tud_task();  // tinyusb device task
     update_inputs();
-    loop_mode();
-    update_lights();
+    debounceSwitch();
+    if(!modeSelected) {
+      selectMode();
+    } else {
+      checkForChangeMode();
+      loop_mode();
+      update_lights();
+    }
+    update_prev_inputs();
   }
 
   return 0;
@@ -503,13 +616,12 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id,
                            uint16_t bufsize) {
   (void)itf;
   if (report_id == 2 && report_type == HID_REPORT_TYPE_OUTPUT &&
-      buffer[0] == 2 && bufsize >= sizeof(lights_report))  // light data
+      bufsize >= sizeof(lights_report))  // light data
   {
     size_t i = 0;
     for (i; i < sizeof(lights_report); i++) {
-      lights_report.raw[i] = buffer[i + 1];
+      lights_report.raw[i] = buffer[i];
     }
-    reactive_timeout_count = 0;
-    leds_changed = true;
+    reactive_timeout_timestamp = time_us_64();
   }
 }
