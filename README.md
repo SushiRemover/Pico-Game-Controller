@@ -3,21 +3,25 @@ Forked from https://github.com/speedypotato/Pico-Game-Controller
 I changed the Firmware to fit my needs, not sain that I can write clean or effecient code...
 
 Features of my Version:
-- Mode indication upon initializing:
-  - FX-L and FX-R lit up, BT-A to BT-D and WS2812B flashing 3 times signalizing the Mode
-  - BT-A, BT-B, BT-C and BT-D lit for Joypad-Mode WS2812B flashing Green  
-  - BT-A lit for Standart Keyboard/Mouse-Mode WS2812B flashing Blue
-  - BT-A and BT-B lit for custom Keyboard-Mode WS2812B flashing Violett
 - New mode, Alternative_Keyboard-Mode:
   - Vol-L act as Arrow Left and Right
   - Vol-R act as Arrow Up and Down
   - Keybindings (incl. Vol-L and Vol-R) can be changed in controller_config.h and are seperate to Standart Keyboard/Mouse-Mode
   - Delay and Duration of the Keypulse as well as the impules from the encoder needed to start a pulse can also be set in controller_config.h
+- New Feature, Modechanger
+  - Can be opened with FX-L + FX-R + Push_Btn at the same time
+  - Can switch between modes without needing to replug the con
+  - MD1 Keyboardmode with Encoders as Mouse (Press BT-A for direct Selection or select with FX and apply with Push_Btn)
+  - MD2 Keyboardmode with Encoders as Arrowkeys (Press BT-B for direct Selection or select with FX and apply with Push_Btn)
+  - MD4 Joypad-Mode (Press BT-D for direct Selection or select with FX and apply with Push_Btn)
+- Debouncing of all switches with no added latency, if a switch gets triggerg it will be at least 5ms hold on pressed and after that a pause of 5ms to prevent bouncing.
+  - Times can be changed in controller_config.h
+
+Note: Con does NOT select a Mode automatically, if you are in the Mode-Selector both FX Leds are on and the bt-a to bt-d leds are showing the mode you are selecting.
 
 How to select modes (same as original):
-- Press nothing while pico initializes, enters Joypad-Mode
-- Press BT-A while initializing to enter Standart Keyboard/Mouse-Mode
-- ***Press BT-B while initializing to enter the Alternative_Keyboard-Mode***
+- Switch between modes while in menu with FX-R/FX-L and apply with Push button
+- Select modes directly, BT-A for MD1 (Keyboard), BT-B for MD2 (Alt-Keyboard) and BT-D for MD4 (Joypad).
 
 Newest build is available in Pico-Game-Controller/build_uf2/Pico_Game_Controller.uf2
 
