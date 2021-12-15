@@ -4,7 +4,7 @@
 #define SW_GPIO_SIZE 8                  // Number of switches
 #define LED_GPIO_SIZE 7                 // Number of switch LEDs
 #define ENC_GPIO_SIZE 2                 // Number of encoders
-#define ENC_PPR 600                     // Encoder PPR
+#define ENC_PPR 24                     // Encoder PPR
 #define ENC_DEBOUNCE true               // Encoder Debouncing
 #define ENC_PULSE (ENC_PPR * 4)         // 4 pulses per PPR
 #define ENC_IPK 5                       // Encoder impulses per Keypress
